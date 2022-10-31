@@ -173,14 +173,14 @@ function Player:update()
 	-- update the index used to control which frame of the run animation Player is in. Switch frames faster when running quickly.
 	if abs(self.velocity.x) < 10 then
 		self.velocity.x = 0
-		runImageIndex = 1 
+		runImageIndex = 6 
 	elseif abs(self.velocity.x) < 140 then
 		runImageIndex = runImageIndex + 0.5
 	else
 		runImageIndex = runImageIndex + 1
 	end
 	
-	if runImageIndex > 3.5 then runImageIndex = 1 end
+	if runImageIndex > 11.5 then runImageIndex = 6 end
 		
 	
 	-- update Player position based on current velocity
