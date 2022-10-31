@@ -173,14 +173,24 @@ function Player:update()
 	-- update the index used to control which frame of the run animation Player is in. Switch frames faster when running quickly.
 	if abs(self.velocity.x) < 10 then
 		self.velocity.x = 0
-		runImageIndex = 6 
+
+		-- TOM EDIT
+		-- when idle run from frames 1 through 6...
+		-- runImageIndex = 1 -- <= old code
+		
+		if runImageIndex > 6 then
+			runImageIndex = 1
+		else
+			runImageIndex = runImageIndex + 0.5
+		end
+
 	elseif abs(self.velocity.x) < 140 then
 		runImageIndex = runImageIndex + 0.5
 	else
 		runImageIndex = runImageIndex + 1
 	end
 	
-	if runImageIndex > 11.5 then runImageIndex = 6 end
+	if runImageIndex > 3.5 then runImageIndex = 1 end
 		
 	
 	-- update Player position based on current velocity
@@ -217,7 +227,10 @@ function Player:updateImage()
 			if skidding then
 				self:setImage(self.playerImages:getImage(TURN), "flipX")
 			elseif self.velocity.x == 0 then
-				self:setImage(self.playerImages:getImage(STAND), "flipX")
+				-- TOM EDIT
+				-- changed STAND to whatever the current runImageIndex is...
+				-- self:setImage(self.playerImages:getImage(STAND), "flipX")
+				self:setImage(self.playerImages:getImage(floor(runImageIndex)), "flipX")
 			else
 				self:setImage(self.playerImages:getImage(floor(runImageIndex+1)), "flipX")
 			end
@@ -225,7 +238,10 @@ function Player:updateImage()
 			if skidding then
 				self:setImage(self.playerImages:getImage(TURN))
 			elseif self.velocity.x == 0 then
-				self:setImage(self.playerImages:getImage(STAND))
+				-- TOM EDIT
+				-- changed STAND to whatever the current runImageIndex is...
+				-- self:setImage(self.playerImages:getImage(STAND))
+				self:setImage(self.playerImages:getImage(floor(runImageIndex)))
 			else
 				self:setImage(self.playerImages:getImage(floor(runImageIndex+1)))
 			end
