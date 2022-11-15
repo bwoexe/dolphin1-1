@@ -1,4 +1,5 @@
 import 'CoreLibs/frameTimer'
+import 'bubble'
 
 class('Player').extends(playdate.graphics.sprite)
 
@@ -31,8 +32,10 @@ local SPEED_OF_RUNNING = 50			-- thea velocity at which we decide the player is 
 
 
 local LEFT, RIGHT = 1, 2
-local STAND, RUN1, RUN2, RUN3, TURN, JUMP, CROUCH = 1, 2, 3, 4, 5, 6, 7
-
+local STAND, RUN1, RUN2, RUN3, TURN, JUMP, CROUCH = 1, 2, 3, 4, 5, 12, 7
+local jump = 12
+local crouching = 18
+local crouchinginit = 18
 -- timer used for player jumps
 local jumpTimer = playdate.frameTimer.new(5, 45, 45, playdate.easingFunctions.outQuad)
 jumpTimer:pause()
@@ -42,13 +45,16 @@ jumpTimer.discardOnCompletion = false
 -- local variables - these are "class local" but since we only have one player this isn't a problem
 local minXPosition = 8
 local maxXPosition = 0 -- real value set in level.lua importTilemapsFromTiledJSON()
+local minYPosition = 8
+local maxYPosition = 0
+
 playerStates = {}
 local spriteHeight = 32
 local onGround = true		-- true if player's feet are on the ground
 local skidding = false		-- true if player is moving one way but the player is trying to move the opposite direction
 local crouch = false
 local facing = RIGHT
-local MAX_RUN_VELOCITY = 240
+local MAX_RUN_VELOCITY = 130
 local runImageIndex = 1
 
 
@@ -74,9 +80,9 @@ function Player:reset()
 end
 
 
-
+-- and other.crushed == true
 function Player:collisionResponse(other)
-	if other:isa(Coin) or (other:isa(Enemy) and other.crushed == true) then
+	if other:isa(Coin) or (other:isa(Bubble)) then
 		return "overlap"
 	end
 	
@@ -86,14 +92,20 @@ end
 
 -- called every frame, handles new input and does simple physics simulation
 function Player:update()
-
+	
+	
 	if playdate.buttonIsPressed("down") and onGround then
 		
 		self:setCrouching(true)
+
+		
 	else
 		
 		if onGround then
 			self:setCrouching(false)
+		else
+			self:setCrouching(false)
+
 		end
 		
 		if playdate.buttonIsPressed("left") then
@@ -127,6 +139,7 @@ function Player:update()
 			end
 		end
 	end
+
 	
 
 	if onGround and (skidding == true or crouch == true or (playdate.buttonIsPressed("left") == false and playdate.buttonIsPressed("right") == false)) then
@@ -137,7 +150,8 @@ function Player:update()
 			self.velocity.x = self.velocity.x * GROUND_FRICTION
 		end
 	end
-
+	
+	
 	
 	-- no longer skidding if we've slowed down this much
 	if abs(self.velocity.x) < 10 then
@@ -151,8 +165,17 @@ function Player:update()
 	end
 	
 	-- set the maximum velocity based on if the O button is down or not
+	if playdate.buttonJustPressed("B") then
+		if facing == LEFT then
+		Bubble(self.position.x - 32, self.y, 0)
+		else
+		Bubble(self.position.x + 32, self.y, 1)
+			
+		end
+	end
+
 	if playdate.buttonIsPressed("B") then
-		MAX_RUN_VELOCITY = 240
+		MAX_RUN_VELOCITY = 180
 	else
 		MAX_RUN_VELOCITY = 120
 	end
@@ -190,7 +213,7 @@ function Player:update()
 		runImageIndex = runImageIndex + 1
 	end
 	
-	if runImageIndex > 3.5 then runImageIndex = 1 end
+	if runImageIndex > 11.5 then runImageIndex = 6 end
 		
 	
 	-- update Player position based on current velocity
@@ -213,16 +236,40 @@ end
 
 -- sets the appropriate sprite image for Player based on the current conditions
 function Player:updateImage()
+	
 
 	if crouch then
 		
+		self:setCollideRect(8,20,32,12)
+
+		if crouching > 28 then
+				crouching = 28
+		else 
+			
+			if crouching then
+				crouching = crouching + 2
+			end
+		end
 		if facing == LEFT then
-			self:setImage(self.playerImages:getImage(CROUCH), "flipX")
+			self:setImage(self.playerImages:getImage(floor(crouching)), "flipX")
 		else
-			self:setImage(self.playerImages:getImage(CROUCH))
+			self:setImage(self.playerImages:getImage(floor(crouching)))
 		end
 		
 	elseif onGround then
+		
+		self:setCollideRect(8,8,32,24)
+		
+		if crouching > 18 then 
+			crouching = crouching - 2
+		else
+		crouching = 18 
+		end
+		if facing == LEFT then
+		self:setImage(self.playerImages:getImage(floor(crouching)), "flipX")
+		else
+		self:setImage(self.playerImages:getImage(floor(crouching)))
+		end
 		if facing == LEFT then
 			if skidding then
 				self:setImage(self.playerImages:getImage(TURN), "flipX")
@@ -247,21 +294,33 @@ function Player:updateImage()
 			end
 		end
 	else
+		if jump then
+			if jump > 17 then
+				jump = 13 
+			else
+			if jump then
+				jump = jump + .5
+			end
+			crouching = 18
+		end
+		
+	
 		if facing == LEFT then
-			self:setImage(self.playerImages:getImage(JUMP), "flipX")
+			self:setImage(self.playerImages:getImage(floor(jump)), "flipX")
 		else
-			self:setImage(self.playerImages:getImage(JUMP))
+			self:setImage(self.playerImages:getImage(floor(jump)))
 		end
 	end
 
 end
-
+end
 
 function Player:setMaxX(x)
 	maxXPosition = x
 end
-
-
+function Player:setMaxY(y)
+	maxYPosition = y
+end
 function Player:setOnGround(flag)
 	onGround = flag
 end
@@ -271,7 +330,7 @@ function Player:setCrouching(flag)
 	crouch = flag
 	
 	if crouch then
-		spriteHeight = 22
+		spriteHeight = 24
 	else
 		spriteHeight = 32
 	end
@@ -325,7 +384,7 @@ function Player:jump()
 		jumpTimer:start()		
 		
 		skidding = false
-		
+		crouch = false
 		SoundManager:playSound(SoundManager.kSoundJump)
 	end
 	

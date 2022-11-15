@@ -65,7 +65,7 @@ local FrameTimer_update = playdate.frameTimer.updateTimers
 local spritelib = playdate.graphics.sprite
 
 -- create our level (only one here for demo purposes!)
-local level = Level('level_1-1.json')
+local level = Level('untitled.json')
 
 
 function playdate.update()

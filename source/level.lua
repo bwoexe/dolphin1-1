@@ -5,7 +5,7 @@ import 'coin'
 import 'player'
 import 'enemy'
 import 'score'
-
+import 'bubble'
 -- local references
 local gfx = playdate.graphics
 local Point = playdate.geometry.point
@@ -15,6 +15,7 @@ local abs, floor, ceil, min, max = math.abs, math.floor, math.ceil, math.min, ma
 -- precalculated values
 local displayWidth, displayHeight = playdate.display.getSize()
 local halfDisplayWidth = displayWidth / 2
+local halfDisplayHieght = displayHeight / 2
 
 -- tilemaps
 local walls
@@ -31,15 +32,16 @@ local BRICK_GID = 3
 local ENEMY_GID = 1
 local COIN_GID = 2
 
-local TILE_SIZE = 16
+local TILE_SIZE = 24
 
-local MAX_PLAYER_Y = 300	-- if player falls below this height he'll die (or respawn)
+local MAX_PLAYER_Y = 1000	-- if player falls below this height he'll die (or respawn)
 
 
 -- local variables
 local minX = 0
 local maxX = 0 -- real value set in init()
-
+local minY = 0
+local maxY = 0
 
 -- Global Variables
 cameraX = 0
@@ -60,6 +62,7 @@ function Level:init(pathToLevelJSON)
 	
 	self.coins = {}
 	self.enemies = {}
+	self.bubbles = {}
 	
 	self.layers = importTilemapsFromTiledJSON(pathToLevelJSON)
 	
@@ -73,13 +76,16 @@ function Level:init(pathToLevelJSON)
 	maxX = background.pixelWidth - displayWidth - TILE_SIZE
 	player:setMaxX(background.pixelWidth - 24)
 	
+	maxY = background.pixelHeight - displayHeight - TILE_SIZE
+	player:setMaxY(background.pixelHeight - 24)
+
 	self:setupWallSprites()
 	self:setupSprites()
 	
 	-- enemies sprites and coins were already added in importTilemapsFromTiledJSON()
 	player:addSprite()	-- we want player's update() to be called before layer's, so add it first
 	self:addSprite()
-	score:addSprite()
+	-- score:addSprite()
 	
 	-- start playing background music
 	SoundManager:playBackgroundMusic()
@@ -151,7 +157,14 @@ function Level:movePlayer()
 		
 		elseif c.other:isa(Coin) then	-- player's collisionResponse returns "overlap" for coins
 			self:collectCoin(c.other)
-		
+
+		elseif c.other:isa(Bubble) then
+			if c.normal.y == -1 then
+				self:killBubble(c.other)
+			-- elseif c.normal.x ~= 0 then
+			-- 	player.velocity.x = 0
+			end
+
 		elseif c.other:isa(Enemy) then 
 			
 			if c.normal.y == -1 then
@@ -185,21 +198,48 @@ function Level:moveEnemies()
 	
 end
 
+function Level:moveBubbles()
+	
+	local bubbles = self.bubbles
+	for i=1, #bubbles do
+		local bubble = bubbles[i]
+		
+		if not bubble.crushed then		
+			bubble.x, bubble.y, cols, cols_len = bubble:moveWithCollisions(bubble.x, bubble.y)
+			
+			for i=1, cols_len do
+				local col = cols[i]      
+				if col.normal.x ~= 0 then -- hit something in the X direction
+					bubble:changeDirections()
+				end
+			end
+		end
+	end
+	
+end
 
 -- moves the camera horizontally based on player's current position
 function Level:updateCameraPosition()
-	local newX = floor(max(min(player.position.x - halfDisplayWidth + 60, maxX), minX))
+	local newX = floor(max(min(player.position.x - halfDisplayWidth, maxX), minX))
 	
 	if newX ~= -cameraX then
-		cameraX = -newX
-		gfx.setDrawOffset(cameraX,0)
-		playdate.graphics.sprite.addDirtyRect(newX, 0, displayWidth, displayHeight)	
+		cameraX = -newX 
+		gfx.setDrawOffset(cameraX,cameraY)
+		playdate.graphics.sprite.addDirtyRect(newX, 0, displayWidth, displayHeight)
+	end
+	
+	local newY = floor(max(min(player.position.y - halfDisplayHieght - 22, maxY), minY))
+	if newY ~= -cameraY then
+		cameraY = -newY
+
+		gfx.setDrawOffset(cameraX,cameraY)
+		playdate.graphics.sprite.addDirtyRect(newX, newY, displayWidth, displayHeight)	
 
 		--[[
 		 Possible optimization: Instead of redrawing the entire screen when it scrolls, draw the previous frame at an offset
 		 and only mark the exposed area as dirty.
 		
-		local d = newX + cameraX
+		local d = newX + X
 		cameraX = -newX
 		gfx.setDrawOffset(cameraX,0)
 		gfx.getDisplayImage():draw(newX,0)
@@ -218,6 +258,7 @@ end
 
 function Level:update()
 	self:movePlayer()
+	self:moveBubbles()
 	self:moveEnemies()
 	self:updateCameraPosition()
 end
@@ -386,6 +427,26 @@ function Level:collectCoin(coin)
 	
 end
 
+function Level:killBubble(bubble)
+	
+	bubble:crush()
+		
+	local function removeBubble(bubble)
+		local bubbles = self.bubbles
+		for i=1, #bubbles do
+			if bubbles[i] == bubble then
+				table.remove(bubble, i)
+				break
+			end
+		end
+
+		bubble:removeSprite()
+	end
+
+	playdate.frameTimer.performAfterDelay(20, removeBubble, bubble)	-- show the squashed enemy for a bit
+	player.velocity.y = -500 -- bounce player off enemy
+	SoundManager:playSound(SoundManager.kSoundStomp)
+end
 
 function Level:killEnemy(enemy)
 	
